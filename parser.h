@@ -6,6 +6,8 @@
 #define OFFSET_SIZE 8
 #define OFFSET_LENGTH(x) x/OFFSET_SIZE
 
+static int label_count = 0;
+
 typedef enum BODY_TYPES {
     CONSTANT=0,
     RETURN,
@@ -17,9 +19,11 @@ typedef enum BODY_TYPES {
     LIST,
     DECLARE,
     VARIABLE,
-    IF_BODY,
-    WHILE_BODY,
-    FOR_BODY
+    IF,
+    WHILE,
+    FOR,
+    CONTINUE,
+    BREAK
 } BODY_TYPES;
 
 static const char* BODY_TYPES_NAMES[] = {
@@ -35,8 +39,16 @@ static const char* BODY_TYPES_NAMES[] = {
     "VARIABLE",
     "IF",
     "WHILE",
-    "FOR"
+    "FOR",
+    "CONTINUE",
+    "BREAK"
 };
+
+typedef struct statement {
+    BODY_TYPES type;
+    struct body* child;
+    int label;
+} statement;
 
 typedef struct variable {
     BODY_TYPES type;
@@ -75,6 +87,7 @@ typedef struct while_body {
     BODY_TYPES type;
     struct body* child;
     struct body* condition;
+    int label;
 } while_body;
 
 typedef struct for_body {
@@ -83,6 +96,7 @@ typedef struct for_body {
     struct body* condition;
     struct body* init;
     struct body* expr;
+    int label;
 } for_body;
 
 /**
@@ -95,6 +109,7 @@ typedef struct list {
     char** variables;
     int stack_offset;
     int stack_offset_dif;
+    int labels_count;
 } list;
 
 typedef struct function {
@@ -128,6 +143,8 @@ void parse_list(lexer* lexer, body** body, list* list);
 void parse_else(lexer* lexer, body** body, list* list);
 void parse_while(lexer* lexer, body** body, list* list);
 void parse_for(lexer* lexer, body** body, list* list);
+void parse_continue(lexer* lexer, body** body, list* list);
+void parse_break(lexer* lexer, body** body, list* list);
 
 void parse_expressions(lexer* lexer, body** body, list* list, parser p, TOKENS* tokens, int tokens_length);
 void append_variable(list* list, char* name);

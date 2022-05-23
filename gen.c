@@ -151,8 +151,6 @@ void gen_expression(FILE* fp, body* body) {
         case LESS_THAN_OR:
             fprintf(fp, c_template, "setle");
             break;
-        default:
-            break;
     }
 }
 
@@ -162,12 +160,11 @@ void get_clause_names(char* child, char* end) {
     clause_count++;
 }
 
-void get_if_names(char* child, char* child2, char* end) {
-    sprintf(child, "_clause%i", clause_count);
-    sprintf(child2, "_eclause%i", clause_count);
-    sprintf(end, "_end%i", clause_count);
-    clause_count++;
+void get_label_names(char* child, char* end, int label) {
+    sprintf(child, "_label%i", label);
+    sprintf(end, "_lend%i", label);
 }
+
 
 void gen_list(FILE* fp, body* b) {
     if (b == NULL || b->child == NULL) return;
@@ -226,7 +223,8 @@ void gen_while(FILE* fp, body* body) {
     while_body* _while = (while_body*)body;
 
     char child[24], end[24];
-    get_clause_names(child, end);
+    get_label_names(child, end, _while->label);
+    sprintf(child, "_expr%i", _while->label);
 
     fprintf(fp, "%s:\n", child);
 
@@ -244,8 +242,9 @@ void gen_while(FILE* fp, body* body) {
 void gen_for(FILE* fp, body* body) {
     for_body* _for = (for_body*)body;
 
-    char child[24], end[24];
-    get_clause_names(child, end);
+    char child[24], end[24], expr[24];
+    sprintf(expr, "_expr%i", _for->label);
+    get_label_names(child, end, _for->label);
 
     gen_code(fp, _for->init);
 
@@ -257,9 +256,29 @@ void gen_for(FILE* fp, body* body) {
     fprintf(fp, template, end);
 
     gen_code(fp, _for->child);
+
+    fprintf(fp, "%s:\n", expr);
     gen_code(fp, _for->expr);
 
     fprintf(fp, "\tjmp\t\t%s\n", child);
     fprintf(fp, "%s:\n", end);
 
+}
+
+void gen_statement(FILE* fp, body* body) {
+    statement* state = (statement*)body;
+    const char* template = "\tjmp\t\t%s\n";
+
+    char child[24], end[24], expr[24];
+
+    sprintf(expr, "_expr%i", state->label);
+    get_label_names(child, end, state->label);
+
+    if (state->type == CONTINUE) {
+        fprintf(fp, template, expr);
+    }
+
+    if (state->type == BREAK) {
+        fprintf(fp, template, end);
+    }
 }

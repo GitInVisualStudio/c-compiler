@@ -24,8 +24,10 @@ void gen_variable(FILE* fp, body* body);
 void gen_if(FILE* fp, body* body);
 void gen_while(FILE* fp, body* body);
 void gen_for(FILE* fp, body* body);
+void gen_statement(FILE* fp, body* body);
 
 void get_clause_names(char* child, char* end);
+void get_label_names(char* child, char* end, int label);
 
 typedef void(*generator)(FILE*, body*);
 
@@ -42,7 +44,9 @@ const static generator gens[] = {
     gen_variable,
     gen_if,
     gen_while,
-    gen_for
+    gen_for,
+    gen_statement,
+    gen_statement
 };
 
 #endif

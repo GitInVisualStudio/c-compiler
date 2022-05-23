@@ -11,4 +11,3 @@ valgrind: compile
 test: run
 	gcc ../build/output.s -o ../build/out
 	../build/out
-	echo $?

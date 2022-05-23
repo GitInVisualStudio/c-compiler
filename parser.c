@@ -19,6 +19,7 @@ list* copy_list(list* list) {
     struct list* new = (struct list*)calloc(1, sizeof(struct list));
     new->stack_offset = list->stack_offset;
     new->type = LIST;
+    new->labels_count = list->labels_count;
     int length = (list->stack_offset/OFFSET_SIZE);
     new->variables = (char**)calloc(sizeof(char*), length);
     for (int i = 0; i < length; i++) {
@@ -169,7 +170,7 @@ void parse_expression(lexer* lexer, body** expr, list* list) {
 
         lexer_next(lexer, &current);
         fseek(lexer->fp, offset, SEEK_SET);
-        if (current.token_type != ASSIGNMENT) {            
+        if (current.token_type != ASSIGN_KEYWORD) {            
             parse_logical_or_exp(lexer, expr, list);
             return;
         }
@@ -190,7 +191,7 @@ void parse_expression(lexer* lexer, body** expr, list* list) {
         strcpy(new->name, current.value);
         *expr = (body*)new;
 
-        check_valid(lexer, &current, ASSIGNMENT);
+        check_valid(lexer, &current, ASSIGN_KEYWORD);
 
         parse_expression(lexer, &new->child, list);
         return;
@@ -239,7 +240,7 @@ void parse_declaration(lexer* lexer, body** state, list* list) {
 
     lexer_peak(lexer, &current);
 
-    if(current.token_type == ASSIGNMENT) {
+    if(current.token_type == ASSIGN_KEYWORD) {
 
         lexer_next(lexer, &current);
 
@@ -256,13 +257,13 @@ void parse_else(lexer* lexer, body** body, list* list) {
 
     lexer_peak(lexer, &current);
 
-    if (current.token_type == ELSE) {
+    if (current.token_type == ELSE_KEYWORD) {
 
         lexer_next(lexer, &current);
 
         lexer_peak(lexer, &current);
 
-        if (current.token_type == IF) {
+        if (current.token_type == IF_KEYWORD) {
             
             parse_statement(lexer, &(*_if)->else_child, list);
             return;
@@ -275,13 +276,14 @@ void parse_else(lexer* lexer, body** body, list* list) {
 void parse_if(lexer* lexer, body** body, list* list) {
     token current;
 
-    check_valid(lexer, &current, IF);
+    check_valid(lexer, &current, IF_KEYWORD);
     check_valid(lexer, &current, O_PARENTHESIS);
     
     if_body* _if = (if_body*)malloc(sizeof(struct if_body));
-    _if->type = IF_BODY;
+    _if->type = IF;
     _if->child = NULL;
     _if->else_child = NULL;
+
     parse_expression(lexer, &_if->condition, list);
 
     check_valid(lexer, &current, C_PARENTHESIS);
@@ -296,35 +298,43 @@ void parse_if(lexer* lexer, body** body, list* list) {
 void parse_while(lexer* lexer, body** body, list* list) {
     token current;
 
-    check_valid(lexer, &current, WHILE);
+    check_valid(lexer, &current, WHILE_KEYWORD);
     check_valid(lexer, &current, O_PARENTHESIS);
     
-    while_body* _if = (while_body*)malloc(sizeof(struct while_body));
-    _if->type = WHILE_BODY;
-    _if->child = NULL;
-    _if->condition = NULL;
-    parse_expression(lexer, &_if->condition, list);
+    while_body* _while = (while_body*)malloc(sizeof(struct while_body));
+    _while->type = WHILE;
+    _while->child = NULL;
+    _while->condition = NULL;
+    _while->label = ++label_count;
+
+    struct list* new_list = copy_list(list);
+    new_list->labels_count++;
+    _while->child = (struct body*)new_list;
+
+    parse_expression(lexer, &_while->condition, new_list);
 
     check_valid(lexer, &current, C_PARENTHESIS);
 
-    parse_list(lexer, &_if->child, list);
+    parse_list(lexer, &new_list->child, new_list);
 
-    *body = (struct body*)_if;
+    *body = (struct body*)_while;
 }
 
 void parse_for(lexer* lexer, body** body, list* list) {
     token current;
 
-    check_valid(lexer, &current, FOR);
+    check_valid(lexer, &current, FOR_KEYWORD);
     check_valid(lexer, &current, O_PARENTHESIS);
     
     for_body* _for = (for_body*)malloc(sizeof(struct for_body));
-    _for->type = FOR_BODY;
+    _for->type = FOR;
     _for->child = NULL;
     _for->expr = NULL;
     _for->condition = NULL;
+    _for->label = ++label_count;
     
     struct list* new_list = copy_list(list);
+    new_list->labels_count++;
     _for->child = (struct body*)new_list;
 
     // parse the initiator
@@ -342,6 +352,40 @@ void parse_for(lexer* lexer, body** body, list* list) {
     *body = (struct body*)_for;
 }
 
+void parse_continue(lexer* lexer, body** body, list* list) {
+    token current;
+    check_valid(lexer, &current, CONTINUE_KEYWORD);
+
+    if (list->labels_count == 0) {
+        fail_error("Can't continue without a loop!");
+    }
+
+    statement* state = (statement*)malloc(sizeof(struct statement));
+    state->label = label_count;
+    state->child = NULL;
+    state->type = CONTINUE;
+    *body = (struct body*)state;
+
+    check_valid(lexer, &current, SEMICOLON);
+}
+
+void parse_break(lexer* lexer, body** body, list* list) {
+    token current;
+    check_valid(lexer, &current, BREAK_KEYWORD);
+
+    if (list->labels_count == 0) {
+        fail_error("Can't break without a loop!");
+    }
+
+    statement* state = (statement*)malloc(sizeof(struct statement));
+    state->label = label_count;
+    state->child = NULL;
+    state->type = BREAK;
+    *body = (struct body*)state;
+
+    check_valid(lexer, &current, SEMICOLON);
+}
+
 void parse_statement(lexer* lexer, body** state, list* list) {
     token current;
 
@@ -354,16 +398,22 @@ void parse_statement(lexer* lexer, body** state, list* list) {
         case INT_KEYWORD:
             parse_declaration(lexer, state, list);
             break;
+        case CONTINUE_KEYWORD:
+            parse_continue(lexer, state, list);
+            break;
+        case BREAK_KEYWORD:
+            parse_break(lexer, state, list);
+            break;
         case SEMICOLON:
             lexer_next(lexer, &current);
             break;
-        case IF:
+        case IF_KEYWORD:
             parse_if(lexer, state, list);
             return;
-        case WHILE:
+        case WHILE_KEYWORD:
             parse_while(lexer, state, list);
             return;
-        case FOR:
+        case FOR_KEYWORD:
             parse_for(lexer, state, list);
             return;
         case O_BRACE:
@@ -408,7 +458,8 @@ void parse_list(lexer* lexer, body** body, list* _list) {
     int start = 0;
 
     list* l = (list*)calloc(1, sizeof(struct list));
-    list *next, *prev;
+    list *next = NULL;
+    list *prev = NULL;
 
     if (_list != NULL) {
         free(l);
@@ -423,7 +474,6 @@ void parse_list(lexer* lexer, body** body, list* _list) {
     lexer_peak(lexer, &current);
 
     while (current.token_type != C_BRACE) {
-
         parse_statement(lexer, &l->child, _list);
 
         next = (list*)calloc(1, sizeof(struct list));
@@ -435,7 +485,7 @@ void parse_list(lexer* lexer, body** body, list* _list) {
         lexer_peak(lexer, &current);
     }
 
-    if (prev != l) {
+    if (prev != l && prev != NULL) {
         free(l);
         prev->next = NULL;
     }
@@ -457,7 +507,7 @@ void parse_free(body* program) {
         expression* exp = (expression*)program;
         parse_free(exp->child2);
     }
-    if (program->type == IF_BODY) {
+    if (program->type == IF) {
         if_body* exp = (if_body*)program;
         parse_free(exp->condition);
         parse_free(exp->else_child);
@@ -471,7 +521,7 @@ void parse_free(body* program) {
         }
         parse_free((body*)l->next);
     }
-    if (program->type == FOR_BODY) {
+    if (program->type == FOR) {
         for_body* f = (for_body*)program;
         parse_free((body*)f->condition);
         parse_free((body*)f->init);
@@ -495,9 +545,6 @@ void print_program(body* program, int depth) {
     for_body* _for;
     variable* var;
     switch(program->type) {
-        case PROGRAM:
-            printf("%s:\n", BODY_TYPES_NAMES[program->type]);
-            break;
         case FUNCTION:
             printf("%s (%s):\n", BODY_TYPES_NAMES[program->type], ((function*)program)->name);
             break;
@@ -514,9 +561,6 @@ void print_program(body* program, int depth) {
             unOp = (unaryOps*)program;
             printf("%s \'%s\':\n", BODY_TYPES_NAMES[program->type], TOKEN_SYMBOLS[unOp->op]);
             break;
-        case RETURN:
-            printf("%s:\n", BODY_TYPES_NAMES[program->type]);
-            break;
         case DECLARE:
             var = (variable*)program;
             printf("%s: %s(%i)\n", BODY_TYPES_NAMES[program->type], var->name, var->offset);
@@ -529,7 +573,7 @@ void print_program(body* program, int depth) {
             var = (variable*)program;
             printf("%s: %s(%i)\n", BODY_TYPES_NAMES[program->type], var->name, var->offset);
             break;
-        case IF_BODY:
+        case IF:
             _if = (if_body*)program;
             printf("%s%s-CONDITION: \n", space, BODY_TYPES_NAMES[program->type]);
             print_program(_if->condition, depth + 2);
@@ -537,17 +581,21 @@ void print_program(body* program, int depth) {
                 printf("%s", "  ");
             printf("TRUE:\n");
             break;
-        case WHILE_BODY:
+        case WHILE:
             _while = (while_body*)program;
             printf("%s%s-CONDITION: \n", space, BODY_TYPES_NAMES[program->type]);
             print_program(_while->condition, depth + 2);
             break;
-        case FOR_BODY:
+        case FOR:
             _for = (for_body*)program;
             printf("%s%s-CONDITION: \n", space, BODY_TYPES_NAMES[program->type]);
             print_program(_for->condition, depth + 2);
             print_program(_for->init, depth + 2);
             print_program(_for->expr, depth + 2);
+            break;
+        default:
+            if (program->type != LIST)
+                printf("%s:\n", BODY_TYPES_NAMES[program->type]);
             break;
 
     }
@@ -558,7 +606,7 @@ void print_program(body* program, int depth) {
         print_program((body*)current->next, depth);
     }
 
-    if (program->type == IF_BODY) {
+    if (program->type == IF) {
         _if = (if_body*)program;
         if (_if->else_child == NULL)
             return;
