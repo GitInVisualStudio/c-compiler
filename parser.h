@@ -38,25 +38,12 @@ static const char* BODY_TYPES_NAMES[] = {
     "FOR"
 };
 
-typedef struct assign {
-    BODY_TYPES type;
-    struct body* child;
-    char name[INPUT_SIZE];
-    int offset;
-} assign;
-
 typedef struct variable {
     BODY_TYPES type;
     struct body* child;
     char name[INPUT_SIZE];
     int offset;
 } variable;
-
-typedef struct declare {
-    BODY_TYPES type;
-    struct body* child;
-    char name[INPUT_SIZE];
-} declare;
 
 typedef struct if_body {
     BODY_TYPES type;
@@ -75,13 +62,13 @@ typedef struct expression {
     BODY_TYPES type;
     struct body* child;
     struct body* child2;
-    char op[INPUT_SIZE]; // longest operator is 2 charater long + null determinator
+    TOKENS op;
 } expression;
 
 typedef struct unaryOps {
     BODY_TYPES type;
     struct body* child;
-    unsigned char operator;
+    TOKENS op;
 } unaryOps;
 
 typedef struct while_body {

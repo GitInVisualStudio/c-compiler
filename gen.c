@@ -29,14 +29,14 @@ void gen_unaryops(FILE* fp, body* body) {
     gen_code(fp, body->child);
     unaryOps* unOp = (unaryOps*)body;
     char* template = "\tcmpl\t$0, %%eax\n\tmovl\t$0, %%eax\n\tsete\t%%al\n";
-    switch (unOp->operator) {
-        case '-':
+    switch (unOp->op) {
+        case MINUS:
             fprintf(fp, "%s", "\tneg\t\t%eax\n");
             break;
-        case '~':
+        case BITWISE_COMPLEMENT:
             fprintf(fp, "%s", "\tnot\t%eax\n");
             break;
-        case '!':
+        case LOGICAL_NEGATION:
             fprintf(fp, "%s", template);
             break;
     }
@@ -92,31 +92,20 @@ void gen_expression(FILE* fp, body* body) {
 
     char child[24], end[24];
     
-    if (strcmp(exp->op, "||") == 0) {
-        const char* or_tamplate_1 = "\tcmpl\t$0, %%eax\n\tje\t\t%s\n\tmovl\t$1, %%eax\n\tjmp\t\t%s\n";
+    if (exp->op == OR || exp->op == AND) {
         get_clause_names(child, end);
 
-        fprintf(fp, or_tamplate_1, child, end);
+        if (exp->op == AND) {
+            fprintf(fp, "\tcmpl\t$0, %%eax\n\tjne\t\t%s\n\tjmp\t\t%s\n", child, end);
+        } else {
+            fprintf(fp, "\tcmpl\t$0, %%eax\n\tje\t\t%s\n\tmovl\t$1, %%eax\n\tjmp\t\t%s\n", child, end);
+        }
+
         fprintf(fp, "%s:\n", child);
 
         gen_code(fp, exp->child2);
 
         fprintf(fp, "%s", "\tcmpl\t$0, %eax\n\tmovl\t$1, %eax\n\tsetne\t%al\n");
-        fprintf(fp, "%s:\n", end);
-
-        return;
-    }
-
-    if (strcmp(exp->op, "&&") == 0) {
-        const char* and_tamplate_1 = "\tcmpl\t$0, %%eax\n\tjne\t\t%s\n\tjmp\t\t%s\n";
-        get_clause_names(child, end);
-
-        fprintf(fp, and_tamplate_1, child, end);
-        fprintf(fp, "%s:\n", child);
-
-        gen_code(fp, exp->child2);
-
-        fprintf(fp, "%s", "\tcmpl\t$0, %eax\n\tmovl\t$0, %eax\n\tsetne\t%al\n");
         fprintf(fp, "%s:\n", end);
 
         return;
@@ -129,27 +118,42 @@ void gen_expression(FILE* fp, body* body) {
 
     fprintf(fp, "%s", "\tpop\t\t%rcx\n");
 
-    if (strcmp(exp->op, "+") == 0)
-        fprintf(fp, "%s", "\taddl\t%ecx, %eax\n");
-    if (strcmp(exp->op, "*") == 0)
-        fprintf(fp, "%s", "\timul\t%ecx, %eax\n");
-    if (strcmp(exp->op, "-") == 0)
-        fprintf(fp, "%s", "\tsubl\t%eax, %ecx\n\tmovl\t%ecx, %eax\n");
-    if (strcmp(exp->op, "/") == 0)
-        fprintf(fp, "%s", "\tmovl\t%eax, %ebx\n\tmovl\t%ecx, %eax\n\tcdq\n\tidivl\t%ebx\n");
     const char* c_template = "\tcmpl\t%%eax, %%ecx\n\tmovl\t$0, %%eax\n\t%s\t%%al\n";
-    if (strcmp(exp->op, "==") == 0)
-        fprintf(fp, c_template, "sete");
-    if (strcmp(exp->op, "!=") == 0)
-        fprintf(fp, c_template, "setne");
-    if (strcmp(exp->op, ">") == 0)
-        fprintf(fp, c_template, "setg");
-    if (strcmp(exp->op, "<") == 0)
-        fprintf(fp, c_template, "setl");
-    if (strcmp(exp->op, ">=") == 0)
-        fprintf(fp, c_template, "setge");
-    if (strcmp(exp->op, "<=") == 0)
-        fprintf(fp, c_template, "setle");
+
+    switch (exp->op) {
+        case ADDITION:
+            fprintf(fp, "%s", "\taddl\t%ecx, %eax\n");
+            break;
+        case MULTIPLICATION:
+            fprintf(fp, "%s", "\timul\t%ecx, %eax\n");
+            break;
+        case MINUS:
+            fprintf(fp, "%s", "\tsubl\t%eax, %ecx\n\tmovl\t%ecx, %eax\n");
+            break;
+        case DIVISION:
+            fprintf(fp, "%s", "\tmovl\t%eax, %ebx\n\tmovl\t%ecx, %eax\n\tcdq\n\tidivl\t%ebx\n");
+            break;
+        case EQUAL:
+            fprintf(fp, c_template, "sete");
+            break;
+        case N_EQUAL:
+            fprintf(fp, c_template, "setne");
+            break;
+        case GREATER_THAN:
+            fprintf(fp, c_template, "setg");
+            break;
+        case LESS_THAN:
+            fprintf(fp, c_template, "setl");
+            break;
+        case GREATER_THAN_OR:
+            fprintf(fp, c_template, "setge");
+            break;
+        case LESS_THAN_OR:
+            fprintf(fp, c_template, "setle");
+            break;
+        default:
+            break;
+    }
 }
 
 void get_clause_names(char* child, char* end) {
@@ -178,9 +182,9 @@ void gen_list(FILE* fp, body* b) {
 
 void gen_assign(FILE* fp, body* body) {
     gen_code(fp, body->child);
-    assign* ass = (assign*)body;
+    variable* var = (variable*)body;
     const char* template = "\tmov\t\t%%eax,-%i(%%rbp)\n";
-    fprintf(fp, template, ass->offset);
+    fprintf(fp, template, var->offset);
 }
 
 void gen_declare(FILE* fp, body* body) {

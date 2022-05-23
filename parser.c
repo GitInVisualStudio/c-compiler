@@ -63,12 +63,11 @@ void parse_factor(lexer* lexer, body** factor, list* list) {
         check_valid(lexer, &current, C_PARENTHESIS);
         return;
     }
-    //if the token is a unary op
+
     if (current.token_type == BITWISE_COMPLEMENT || current.token_type == MINUS || current.token_type == LOGICAL_NEGATION) {
         unaryOps* new = (unaryOps*)malloc(sizeof(struct unaryOps));
         new->type = UNARY_OPS;
-        // copy the operator
-        new->operator = current.value[0];
+        new->op = current.token_type;
         *factor = (body*)new;
         parse_factor(lexer, &new->child, list);
         return;
@@ -123,7 +122,7 @@ void parse_expressions(lexer* lexer, body** body, list* list, parser p, TOKENS* 
 
         new = (expression*)malloc(sizeof(struct expression));
         new->type = EXPRESSION;
-        strcpy(new->op, current.value);
+        new->op = current.token_type;
         new->child = *body;
         p(lexer, &new->child2, list);
         *body = (struct body*)new;
@@ -184,7 +183,7 @@ void parse_expression(lexer* lexer, body** expr, list* list) {
         }
 
         // TODO: parse assignment
-        assign* new = (assign*)malloc(sizeof(struct assign));
+        variable* new = (variable*)malloc(sizeof(struct variable));
         new->type = ASSIGN;
         new->child = NULL;
         new->offset = get_offset(list, current.value);
@@ -227,13 +226,14 @@ void parse_declaration(lexer* lexer, body** state, list* list) {
         fail_error(error_msg);
     }
 
-    declare* new = (declare*)malloc(sizeof(struct declare));
+    variable* new = (variable*)malloc(sizeof(struct variable));
     new->child = NULL;
     new->type = DECLARE;
     strcpy(new->name, current.value);
 
     //TODO: append the variable to the variable list and increase the stack pointer accordingly
     append_variable(list, new->name);
+    new->offset = get_offset(list, new->name);
     
     *state = (body*)new;
 
@@ -408,8 +408,7 @@ void parse_list(lexer* lexer, body** body, list* _list) {
     int start = 0;
 
     list* l = (list*)calloc(1, sizeof(struct list));
-    list* prev = NULL;
-    list* next;
+    list *next, *prev;
 
     if (_list != NULL) {
         free(l);
@@ -421,32 +420,25 @@ void parse_list(lexer* lexer, body** body, list* _list) {
     l->type = LIST;
     *body = (struct body*)l;
 
-    do {
-        lexer_peak(lexer, &current);
+    lexer_peak(lexer, &current);
 
-        if (current.token_type == C_BRACE) {
-            break;
-        }
-        
+    while (current.token_type != C_BRACE) {
+
         parse_statement(lexer, &l->child, _list);
-        if (l->child == NULL) {
-            printf("stopping\n");
-            parse_free((struct body*)l);
-
-            if (prev != NULL) {
-                prev->next = NULL;
-            } else {
-                *body = NULL;
-            }
-            break;
-        }
 
         next = (list*)calloc(1, sizeof(struct list));
-        next->type = LIST;        
+        l->type = LIST;
         l->next = next;
         prev = l;
         l = next;
-    } while(1);
+
+        lexer_peak(lexer, &current);
+    }
+
+    if (prev != l) {
+        free(l);
+        prev->next = NULL;
+    }
 
     _list->stack_offset_dif = _list->stack_offset - start;
     check_valid(lexer, &current, C_BRACE);
@@ -497,8 +489,6 @@ void print_program(body* program, int depth) {
             printf("%s", space);
     expression* ex;
     unaryOps* unOp;
-    declare* dec;
-    assign* as;
     list* current;
     if_body* _if;
     while_body* _while;
@@ -513,7 +503,7 @@ void print_program(body* program, int depth) {
             break;
         case EXPRESSION:
             ex = (expression*)program;
-            printf("%s \'%s\':\n", BODY_TYPES_NAMES[program->type], ((expression*)program)->op);
+            printf("%s \'%s\':\n", BODY_TYPES_NAMES[program->type], TOKEN_SYMBOLS[ex->op]);
             if (ex->child2 != NULL)
                 print_program(ex->child2, depth + 1);
             break;
@@ -522,18 +512,18 @@ void print_program(body* program, int depth) {
             break;
         case UNARY_OPS:
             unOp = (unaryOps*)program;
-            printf("%s \'%c\':\n", BODY_TYPES_NAMES[program->type], unOp->operator);
+            printf("%s \'%s\':\n", BODY_TYPES_NAMES[program->type], TOKEN_SYMBOLS[unOp->op]);
             break;
         case RETURN:
             printf("%s:\n", BODY_TYPES_NAMES[program->type]);
             break;
         case DECLARE:
-            dec = (declare*)program;
-            printf("%s: %s\n", BODY_TYPES_NAMES[program->type], dec->name);
+            var = (variable*)program;
+            printf("%s: %s(%i)\n", BODY_TYPES_NAMES[program->type], var->name, var->offset);
             break;
         case ASSIGN:
-            as = (assign*)program;
-            printf("%s: %s(%i)\n", BODY_TYPES_NAMES[program->type], as->name, as->offset);
+            var = (variable*)program;
+            printf("%s: %s(%i)\n", BODY_TYPES_NAMES[program->type], var->name, var->offset);
             break;
         case VARIABLE:
             var = (variable*)program;
