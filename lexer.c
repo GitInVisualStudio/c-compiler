@@ -23,9 +23,11 @@ void lexer_free(lexer* lexer) {
 }
 
 bool lexer_next(lexer* lexer, token* token) {
+
     char input[1024];
 
     if (fscanf(lexer->fp, "%s", input) == EOF) {
+        token->token_type = EOF_TOKEN;
         return false;
     }
 

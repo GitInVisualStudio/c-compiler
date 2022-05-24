@@ -15,52 +15,80 @@ void check_valid(lexer* lexer, token* token, TOKENS type) {
     if (token->token_type != type) fail(token, type);
 }
 
-list* copy_list(list* list) {
-    struct list* new = (struct list*)calloc(1, sizeof(struct list));
-    new->stack_offset = list->stack_offset;
-    new->type = LIST;
-    new->labels_count = list->labels_count;
-    int length = (list->stack_offset/OFFSET_SIZE);
-    new->variables = (char**)calloc(sizeof(char*), length);
+void cpy_str_arry(char** dest, char** src, int length) {
     for (int i = 0; i < length; i++) {
-        int str_length = strlen(list->variables[i]);
-        new->variables[i] = (char*)calloc(sizeof(char), str_length + 1);
-        strcpy(new->variables[i], list->variables[i]);
+        int str_length = strlen(src[i]);
+        dest[i] = (char*)calloc(sizeof(char), str_length + 1);
+        strcpy(dest[i], src[i]);
+    }
+}
+
+context* copy_context(context* context) {
+    struct context* new = (struct context*)calloc(1, sizeof(struct context));
+    new->type = CONTEXT;
+    if (context == NULL) {
+        return new;        
+    }
+    new->stack_offset = context->stack_offset;
+    new->labels_count = context->labels_count;
+    int length = (context->stack_offset/OFFSET_SIZE);
+    if (length > 0) {
+        new->variables = (char**)calloc(sizeof(char*), length);
+        cpy_str_arry(new->variables, context->variables, length);
+    }
+    int func_length = context->functions_length;
+    if (func_length > 0) {
+        new->functions_length = context->functions_length;
+        new->function_names = (char**)calloc(sizeof(char*), func_length);
+        cpy_str_arry(new->function_names, context->function_names, func_length);
+        new->function_params = (int*)calloc(sizeof(int), func_length);
+        memcpy(new->function_params, context->function_params, sizeof(int) * func_length);
     }
     return new;
 }
 
-void append_variable(list* list, char* name) {
-    list->stack_offset += OFFSET_SIZE;
-    int stack_length = (list->stack_offset/OFFSET_SIZE);
+void append_variable(context* context, char* name) {
+    context->stack_offset += OFFSET_SIZE;
+    int stack_length = (context->stack_offset/OFFSET_SIZE);
     int name_length = strlen(name);
-    list->variables = (char**)realloc(list->variables, sizeof(char*) * stack_length);
-    list->variables[stack_length - 1] = (char*)calloc(name_length + 1, sizeof(char));
-    strcpy(list->variables[stack_length - 1], name);
+    context->variables = (char**)realloc(context->variables, sizeof(char*) * stack_length);
+    context->variables[stack_length - 1] = (char*)calloc(name_length + 1, sizeof(char));
+    strcpy(context->variables[stack_length - 1], name);
 }
 
-int get_offset(list* list, char* name) {
-    int stack_length = (list->stack_offset/OFFSET_SIZE);
+int get_offset(context* context, char* name) {
+    int stack_length = (context->stack_offset/OFFSET_SIZE);
     for (int i = 0; i < stack_length; i++) 
-        if (strcmp(name, list->variables[i]) == 0)
+        if (strcmp(name, context->variables[i]) == 0)
             return (i + 1) * OFFSET_SIZE;
     return -1;
 }
 
-bool contains_variable(list* list, char* name) {
-    int stack_length = (list->stack_offset/OFFSET_SIZE);
-    for (int i = 0; i < stack_length; i++) 
-        if (strcmp(name, list->variables[i]) == 0)
-            return true;
-    return false;
+void append_function(context* context, char* name, int argc) {
+    int length = ++context->functions_length;
+    context->function_names = (char**)realloc(context->function_names, sizeof(char*) * length);
+    context->function_params = (int*)realloc(context->function_params, sizeof(int) * length);
+    context->function_params[length - 1] = argc;
+
+    int str_length = strlen(name);
+    context->function_names[length - 1] = (char*)calloc(sizeof(char), str_length + 1);
+    strcpy(context->function_names[length - 1], name);
 }
 
-void parse_factor(lexer* lexer, body** factor, list* list) {
+int get_argc(context* context, char* name) {
+    for (int i = 0; i < context->functions_length; i++) {
+        if (strcmp(context->function_names[i], name) == 0)
+            return context->function_params[i];
+    }
+    return -1;
+}
+
+void parse_factor(lexer* lexer, body** factor, context* context) {
     token current;
     lexer_next(lexer, &current);
 
     if (current.token_type == O_PARENTHESIS) {
-        parse_expression(lexer, factor, list);
+        parse_expression(lexer, factor, context);
         check_valid(lexer, &current, C_PARENTHESIS);
         return;
     }
@@ -70,7 +98,7 @@ void parse_factor(lexer* lexer, body** factor, list* list) {
         new->type = UNARY_OPS;
         new->op = current.token_type;
         *factor = (body*)new;
-        parse_factor(lexer, &new->child, list);
+        parse_factor(lexer, &new->child, context);
         return;
     }
 
@@ -85,7 +113,14 @@ void parse_factor(lexer* lexer, body** factor, list* list) {
 
     if (current.token_type == IDENTIFIER) {
         
-        if (!contains_variable(list, current.value)) {
+        token next;
+        lexer_peak(lexer, &next);
+        if (next.token_type == O_PARENTHESIS) {
+            parse_call(lexer, factor, context, &current);
+            return;
+        }
+
+        if (get_offset(context, current.value) == -1) {
             char error_msg[INPUT_SIZE * 2];
             sprintf(error_msg, "Variable: (%s) not declared previously!", current.value);
             fail_error(error_msg);
@@ -94,7 +129,7 @@ void parse_factor(lexer* lexer, body** factor, list* list) {
         variable* var = (variable*)malloc(sizeof(struct variable));
         var->child = NULL;
         var->type = VARIABLE;
-        var->offset = get_offset(list, current.value);
+        var->offset = get_offset(context, current.value);
         strcpy(var->name, current.value);
         *factor = (body*)var;
         return;
@@ -110,9 +145,9 @@ bool contains_token(TOKENS* tokens, int tokens_length, TOKENS token) {
     return false;
 }
 
-void parse_expressions(lexer* lexer, body** body, list* list, parser p, TOKENS* tokens, int tokens_length) {
+void parse_expressions(lexer* lexer, body** body, context* context, parser p, TOKENS* tokens, int tokens_length) {
     expression* new;
-    p(lexer, (struct body**)&new, list);
+    p(lexer, (struct body**)&new, context);
     *body = (struct body*)new;
 
     token current;
@@ -125,38 +160,98 @@ void parse_expressions(lexer* lexer, body** body, list* list, parser p, TOKENS* 
         new->type = EXPRESSION;
         new->op = current.token_type;
         new->child = *body;
-        p(lexer, &new->child2, list);
+        p(lexer, &new->child2, context);
         *body = (struct body*)new;
         
         lexer_peak(lexer, &current);
     }
 }
 
-void parse_term(lexer* lexer, body** term, list* list) {
-    parse_expressions(lexer, term, list, parse_factor, (TOKENS[]){MULTIPLICATION, DIVISION}, 2);
+void parse_term(lexer* lexer, body** term, context* context) {
+    parse_expressions(lexer, term, context, parse_factor, (TOKENS[]){MULTIPLICATION, DIVISION}, 2);
 }
 
-void parse_additive_exp(lexer* lexer, body** expr, list* list) {
-    parse_expressions(lexer, expr, list, parse_term, (TOKENS[]){ADDITION, MINUS}, 2);
+void parse_additive_exp(lexer* lexer, body** expr, context* context) {
+    parse_expressions(lexer, expr, context, parse_term, (TOKENS[]){ADDITION, MINUS}, 2);
 }
 
-void parse_relational_exp(lexer* lexer, body** expr, list* list) {
-    parse_expressions(lexer, expr, list, parse_additive_exp, (TOKENS[]){GREATER_THAN, GREATER_THAN_OR, LESS_THAN, LESS_THAN_OR}, 4);
+void parse_relational_exp(lexer* lexer, body** expr, context* context) {
+    parse_expressions(lexer, expr, context, parse_additive_exp, (TOKENS[]){GREATER_THAN, GREATER_THAN_OR, LESS_THAN, LESS_THAN_OR}, 4);
 }
 
-void parse_equality_exp(lexer* lexer, body** expr, list* list) {
-    parse_expressions(lexer, expr, list, parse_relational_exp, (TOKENS[]){EQUAL, N_EQUAL}, 2);
+void parse_equality_exp(lexer* lexer, body** expr, context* context) {
+    parse_expressions(lexer, expr, context, parse_relational_exp, (TOKENS[]){EQUAL, N_EQUAL}, 2);
 }
 
-void parse_logical_and_exp(lexer* lexer, body** expr, list* list) {
-    parse_expressions(lexer, expr, list, parse_equality_exp, (TOKENS[]){AND}, 1);
+void parse_logical_and_exp(lexer* lexer, body** expr, context* context) {
+    parse_expressions(lexer, expr, context, parse_equality_exp, (TOKENS[]){AND}, 1);
 }
 
-void parse_logical_or_exp(lexer* lexer, body** expr, list* list) {
-    parse_expressions(lexer, expr, list, parse_logical_and_exp, (TOKENS[]){OR}, 1);
+void parse_logical_or_exp(lexer* lexer, body** expr, context* context) {
+    parse_expressions(lexer, expr, context, parse_logical_and_exp, (TOKENS[]){OR}, 1);
 }
 
-void parse_expression(lexer* lexer, body** expr, list* list) {
+void parse_assignment(lexer* lexer, body** body, context* context) {
+    token current;
+    check_valid(lexer, &current, IDENTIFIER);
+
+    if (get_offset(context, current.value) == -1) {
+        char error_msg[INPUT_SIZE * 2];
+        sprintf(error_msg, "Variable %s not declared previously!", current.value);
+        fail_error(error_msg);
+    }
+
+    // TODO: parse assignment
+    variable* new = (variable*)malloc(sizeof(struct variable));
+    new->type = ASSIGN;
+    new->child = NULL;
+    new->offset = get_offset(context, current.value);
+    strcpy(new->name, current.value);
+    *body = (struct body*)new;
+
+    check_valid(lexer, &current, ASSIGN_KEYWORD);
+    parse_expression(lexer, &new->child, context);
+}
+
+void parse_call(lexer* lexer, body** body, context* context, token* prev) {
+    token current;
+    
+    int argc = get_argc(context, prev->value);
+
+    if (argc == -1) {
+        char error_msg[INPUT_SIZE * 2];
+        sprintf(error_msg, "Function (%s) not defined!", prev->value);
+        fail_error(error_msg);
+    }
+
+    function_call* call = (function_call*)malloc(sizeof(struct function_call));
+    call->type = CALL;
+    strcpy(call->name, prev->value);
+    call->argc = 0;
+    call->child = NULL;
+    call->expressions = NULL;
+
+    check_valid(lexer, &current, O_PARENTHESIS);
+
+    lexer_peak(lexer, &current);
+
+    while(current.token_type != C_PARENTHESIS) {
+        call->argc++;
+        call->expressions = (struct body**)realloc(call->expressions, sizeof(struct body*) * call->argc);
+        parse_expression(lexer, &call->expressions[call->argc - 1], context);
+
+        lexer_peak(lexer, &current);
+        if(current.token_type == COMMA) {
+            lexer_next(lexer, &current);
+        }
+    }
+
+    check_valid(lexer, &current, C_PARENTHESIS);
+
+    *body = (struct body*)call;
+}
+
+void parse_expression(lexer* lexer, body** expr, context* context) {
     token current;
     lexer_peak(lexer, &current);
 
@@ -170,37 +265,19 @@ void parse_expression(lexer* lexer, body** expr, list* list) {
 
         lexer_next(lexer, &current);
         fseek(lexer->fp, offset, SEEK_SET);
-        if (current.token_type != ASSIGN_KEYWORD) {            
-            parse_logical_or_exp(lexer, expr, list);
+        if (current.token_type == ASSIGN_KEYWORD) {   
+            parse_assignment(lexer, expr, context);         
             return;
         }
 
-        lexer_next(lexer, &current);
-
-        if (!contains_variable(list, current.value)) {
-            char error_msg[INPUT_SIZE * 2];
-            sprintf(error_msg, "Variable %s not declared previously!", current.value);
-            fail_error(error_msg);
-        }
-
-        // TODO: parse assignment
-        variable* new = (variable*)malloc(sizeof(struct variable));
-        new->type = ASSIGN;
-        new->child = NULL;
-        new->offset = get_offset(list, current.value);
-        strcpy(new->name, current.value);
-        *expr = (body*)new;
-
-        check_valid(lexer, &current, ASSIGN_KEYWORD);
-
-        parse_expression(lexer, &new->child, list);
+        parse_logical_or_exp(lexer, expr, context);
         return;
     }
 
-    parse_logical_or_exp(lexer, expr, list);
+    parse_logical_or_exp(lexer, expr, context);
 }
 
-void parse_return(lexer* lexer, body** b, list* list) {
+void parse_return(lexer* lexer, body** b, context* context) {
     body* new = (body*)malloc(sizeof(struct body));
     new->type = RETURN;
     new->child = NULL;
@@ -210,18 +287,18 @@ void parse_return(lexer* lexer, body** b, list* list) {
 
     check_valid(lexer, &current, RETURN_KEYWORD);
 
-    parse_expression(lexer, &new->child, list);
+    parse_expression(lexer, &new->child, context);
 
     check_valid(lexer, &current, SEMICOLON);
 }
 
-void parse_declaration(lexer* lexer, body** state, list* list) {
+void parse_declaration(lexer* lexer, body** state, context* context) {
     token current;
     check_valid(lexer, &current, INT_KEYWORD);
 
     check_valid(lexer, &current, IDENTIFIER);
 
-    if (contains_variable(list, current.value)) {
+    if (get_offset(context, current.value) != -1) {
         char error_msg[INPUT_SIZE * 2];
         sprintf(error_msg, "Variable: (%s) already declared!", current.value);
         fail_error(error_msg);
@@ -233,8 +310,8 @@ void parse_declaration(lexer* lexer, body** state, list* list) {
     strcpy(new->name, current.value);
 
     //TODO: append the variable to the variable list and increase the stack pointer accordingly
-    append_variable(list, new->name);
-    new->offset = get_offset(list, new->name);
+    append_variable(context, new->name);
+    new->offset = get_offset(context, new->name);
     
     *state = (body*)new;
 
@@ -244,13 +321,13 @@ void parse_declaration(lexer* lexer, body** state, list* list) {
 
         lexer_next(lexer, &current);
 
-        parse_expression(lexer, &new->child, list);
+        parse_expression(lexer, &new->child, context);
     }
 
     check_valid(lexer, &current, SEMICOLON);
 }
 
-void parse_else(lexer* lexer, body** body, list* list) {
+void parse_else(lexer* lexer, body** body, context* context) {
     if_body** _if = (if_body**)body;
 
     token current;
@@ -265,15 +342,15 @@ void parse_else(lexer* lexer, body** body, list* list) {
 
         if (current.token_type == IF_KEYWORD) {
             
-            parse_statement(lexer, &(*_if)->else_child, list);
+            parse_statement(lexer, &(*_if)->else_child, context);
             return;
         }
 
-        parse_list(lexer, &(*_if)->else_child, list);
+        parse_list(lexer, &(*_if)->else_child, context);
     }
 }
 
-void parse_if(lexer* lexer, body** body, list* list) {
+void parse_if(lexer* lexer, body** body, context* context) {
     token current;
 
     check_valid(lexer, &current, IF_KEYWORD);
@@ -284,18 +361,18 @@ void parse_if(lexer* lexer, body** body, list* list) {
     _if->child = NULL;
     _if->else_child = NULL;
 
-    parse_expression(lexer, &_if->condition, list);
+    parse_expression(lexer, &_if->condition, context);
 
     check_valid(lexer, &current, C_PARENTHESIS);
 
-    parse_list(lexer, &_if->child, list);
+    parse_list(lexer, &_if->child, context);
 
     *body = (struct body*)_if;
 
-    parse_else(lexer, (struct body**)&_if, list);
+    parse_else(lexer, (struct body**)&_if, context);
 }
 
-void parse_while(lexer* lexer, body** body, list* list) {
+void parse_while(lexer* lexer, body** body, context* context) {
     token current;
 
     check_valid(lexer, &current, WHILE_KEYWORD);
@@ -307,20 +384,20 @@ void parse_while(lexer* lexer, body** body, list* list) {
     _while->condition = NULL;
     _while->label = ++label_count;
 
-    struct list* new_list = copy_list(list);
-    new_list->labels_count++;
-    _while->child = (struct body*)new_list;
+    struct context* new_context = copy_context(context);
+    new_context->labels_count++;
+    _while->child = (struct body*)new_context;
 
-    parse_expression(lexer, &_while->condition, new_list);
+    parse_expression(lexer, &_while->condition, new_context);
 
     check_valid(lexer, &current, C_PARENTHESIS);
 
-    parse_list(lexer, &new_list->child, new_list);
+    parse_list(lexer, &new_context->child, new_context);
 
     *body = (struct body*)_while;
 }
 
-void parse_for(lexer* lexer, body** body, list* list) {
+void parse_for(lexer* lexer, body** body, context* context) {
     token current;
 
     check_valid(lexer, &current, FOR_KEYWORD);
@@ -333,30 +410,30 @@ void parse_for(lexer* lexer, body** body, list* list) {
     _for->condition = NULL;
     _for->label = ++label_count;
     
-    struct list* new_list = copy_list(list);
-    new_list->labels_count++;
-    _for->child = (struct body*)new_list;
+    struct context* new_context = copy_context(context);
+    new_context->labels_count++;
+    _for->child = (struct body*)new_context;
 
     // parse the initiator
-    parse_statement(lexer, &_for->init, new_list);
+    parse_statement(lexer, &_for->init, new_context);
 
-    parse_expression(lexer, &_for->condition, new_list);
+    parse_expression(lexer, &_for->condition, new_context);
     check_valid(lexer, &current, SEMICOLON);
 
-    parse_statement(lexer, &_for->expr, new_list);
+    parse_expression(lexer, &_for->expr, new_context);
 
     check_valid(lexer, &current, C_PARENTHESIS);
 
-    parse_list(lexer, &new_list->child, new_list);
+    parse_list(lexer, &new_context->child, new_context);
 
     *body = (struct body*)_for;
 }
 
-void parse_continue(lexer* lexer, body** body, list* list) {
+void parse_continue(lexer* lexer, body** body, context* context) {
     token current;
     check_valid(lexer, &current, CONTINUE_KEYWORD);
 
-    if (list->labels_count == 0) {
+    if (context->labels_count == 0) {
         fail_error("Can't continue without a loop!");
     }
 
@@ -369,11 +446,11 @@ void parse_continue(lexer* lexer, body** body, list* list) {
     check_valid(lexer, &current, SEMICOLON);
 }
 
-void parse_break(lexer* lexer, body** body, list* list) {
+void parse_break(lexer* lexer, body** body, context* context) {
     token current;
     check_valid(lexer, &current, BREAK_KEYWORD);
 
-    if (list->labels_count == 0) {
+    if (context->labels_count == 0) {
         fail_error("Can't break without a loop!");
     }
 
@@ -386,41 +463,42 @@ void parse_break(lexer* lexer, body** body, list* list) {
     check_valid(lexer, &current, SEMICOLON);
 }
 
-void parse_statement(lexer* lexer, body** state, list* list) {
+void parse_statement(lexer* lexer, body** state, context* context) {
     token current;
 
     lexer_peak(lexer, &current);
 
     switch (current.token_type) {
         case RETURN_KEYWORD:
-            parse_return(lexer, state, list);
+            parse_return(lexer, state, context);
             break;
         case INT_KEYWORD:
-            parse_declaration(lexer, state, list);
+            parse_declaration(lexer, state, context);
             break;
         case CONTINUE_KEYWORD:
-            parse_continue(lexer, state, list);
+            parse_continue(lexer, state, context);
             break;
         case BREAK_KEYWORD:
-            parse_break(lexer, state, list);
+            parse_break(lexer, state, context);
             break;
         case SEMICOLON:
             lexer_next(lexer, &current);
             break;
         case IF_KEYWORD:
-            parse_if(lexer, state, list);
+            parse_if(lexer, state, context);
             return;
         case WHILE_KEYWORD:
-            parse_while(lexer, state, list);
+            parse_while(lexer, state, context);
             return;
         case FOR_KEYWORD:
-            parse_for(lexer, state, list);
+            parse_for(lexer, state, context);
             return;
         case O_BRACE:
-            parse_list(lexer, state, list);
+            parse_list(lexer, state, context);
             return;
         default:
-            parse_expression(lexer, state, list);
+            parse_expression(lexer, state, context);
+            check_valid(lexer, &current, SEMICOLON);
     }
 
     lexer_peak(lexer, &current);
@@ -430,9 +508,26 @@ void parse_statement(lexer* lexer, body** state, list* list) {
     }
 }
 
-void parse_function(lexer* lexer, function** func) {
+void parse_parameter(lexer* lexer, context* context) {
+    token current;
+    check_valid(lexer, &current, INT_KEYWORD);
+
+    check_valid(lexer, &current, IDENTIFIER);
+
+    if (get_offset(context, current.value) != -1) {
+        char error_msg[INPUT_SIZE * 2];
+        sprintf(error_msg, "Variable: (%s) already declared!", current.value);
+        fail_error(error_msg);
+    }
+
+    // only add the variable to the context list of variables
+    append_variable(context, current.value);
+}
+
+void parse_function(lexer* lexer, function** func, context* context) {
     function* new = (function*)malloc(sizeof(struct function));
     new->type = FUNCTION;
+    new->argc = 0;
     *func = new;
 
     token current;
@@ -445,36 +540,67 @@ void parse_function(lexer* lexer, function** func) {
     strcpy(new->name, current.value);
 
     check_valid(lexer, &current, O_PARENTHESIS);
-    check_valid(lexer, &current, C_PARENTHESIS);
+
+    struct context* new_context = copy_context(context);
+    new_context->type = CONTEXT;
+    new->child = (struct body*)new_context;
     
-    parse_list(lexer, &new->child, NULL);
+    lexer_peak(lexer, &current);
+
+    while(current.token_type == INT_KEYWORD) {
+        new->argc++;
+        if (new->argc > 6) {
+            fail_error("No functions supported with more than 6 arguments!");
+        }
+        parse_parameter(lexer, new_context);
+
+        lexer_peak(lexer, &current);
+        if (current.token_type == COMMA) {
+            lexer_next(lexer, &current);
+            lexer_peak(lexer, &current);
+        }
+    }
+
+    new_context->stack_offset = OFFSET_SIZE * new->argc;
+
+    check_valid(lexer, &current, C_PARENTHESIS);
+    lexer_peak(lexer, &current);
+
+    int context_argc = get_argc(context, new->name);
+    if (context_argc != new->argc && context_argc != -1) {
+        char error_msg[INPUT_SIZE * 2];
+        sprintf(error_msg, "new definition of function with same name: (%s)", new->name);
+        fail_error(error_msg);
+    }
+
+    append_function(context, new->name, new->argc);
+
+    if (current.token_type == SEMICOLON) {
+        new->child = NULL;
+        parse_free((body*)new_context);
+        lexer_next(lexer, &current);
+        return;
+    }
+
+    parse_list(lexer, &new_context->child, new_context);
 }
 
-void parse_list(lexer* lexer, body** body, list* _list) {
+void parse_list(lexer* lexer, body** body, context* _context) {
     token current;
 
     check_valid(lexer, &current, O_BRACE);
-
-    int start = 0;
-
+    context* new_context = copy_context(_context);
     list* l = (list*)calloc(1, sizeof(struct list));
     list *next = NULL;
     list *prev = NULL;
-
-    if (_list != NULL) {
-        free(l);
-        start = _list->stack_offset;
-        l = copy_list(_list);
-    }
-
-    _list = l;
     l->type = LIST;
-    *body = (struct body*)l;
+    new_context->child = (struct body*)l;
+    *body = (struct body*)new_context;
 
     lexer_peak(lexer, &current);
 
     while (current.token_type != C_BRACE) {
-        parse_statement(lexer, &l->child, _list);
+        parse_statement(lexer, &l->child, new_context);
 
         next = (list*)calloc(1, sizeof(struct list));
         l->type = LIST;
@@ -490,15 +616,32 @@ void parse_list(lexer* lexer, body** body, list* _list) {
         prev->next = NULL;
     }
 
-    _list->stack_offset_dif = _list->stack_offset - start;
+    new_context->stack_offset_dif = new_context->stack_offset - _context->stack_offset;
     check_valid(lexer, &current, C_BRACE);
 }
 
 void parse_program(lexer* lexer, body** prog) {
-    body* new = (body*)malloc(sizeof(struct body));
+    program* new = (program*)malloc(sizeof(struct program));
     new->type = PROGRAM;
-    *prog = new;
-    parse_function(lexer, (function**)&new->child);
+    new->func_length = 0;
+    new->funcs = NULL;
+    new->child = NULL;
+    *prog = (body*)new;
+    struct context* context = (struct context*)calloc(sizeof(struct context), 1);
+    context->type = CONTEXT;
+    
+    token current;
+
+    do {
+        new->func_length++;
+        new->funcs = (function**)realloc(new->funcs, sizeof(function*) * new->func_length);
+
+        parse_function(lexer, &new->funcs[new->func_length - 1], context);
+
+        lexer_peak(lexer, &current);
+    } while (current.token_type == INT_KEYWORD);
+
+    parse_free((struct body*)context);
 }
 
 void parse_free(body* program) {
@@ -514,18 +657,48 @@ void parse_free(body* program) {
     }
     if (program->type == LIST) {
         list* l = (list*)program;
-        if (l->variables != NULL) {
-            for (int i = 0; i < l->stack_offset/OFFSET_SIZE; i++)
-                free(l->variables[i]);
-            free(l->variables);
-        }
         parse_free((body*)l->next);
+    }
+    if (program->type == CONTEXT) {
+        context* c = (context*)program;
+        //TODO free everything
+        for (int i = 0; i < c->stack_offset/OFFSET_SIZE; i++) {
+            free(c->variables[i]);
+        }
+
+        if (c->stack_offset != 0)
+            free(c->variables);
+
+        for (int i = 0; i < c->functions_length; i++) {
+            free(c->function_names[i]);
+        }
+        if (c->functions_length != 0) {
+            free(c->function_names);
+            free(c->function_params);
+        }
+    }
+    if (program->type == CALL) {
+        function_call* call = (function_call*)program;
+        for (int i = 0; i < call->argc; i++) {
+            parse_free(call->expressions[i]);
+        }
+        if (call->argc > 0)
+            free(call->expressions);
     }
     if (program->type == FOR) {
         for_body* f = (for_body*)program;
         parse_free((body*)f->condition);
         parse_free((body*)f->init);
         parse_free((body*)f->expr);
+    }
+    if (program->type == PROGRAM) {
+        struct program* prog = (struct program*)program;
+        for (int i = 0; i < prog->func_length; i++) {
+            parse_free((struct body*)prog->funcs[i]);
+        }
+        if (prog->func_length > 0)
+            free(prog->funcs);
+        // parse_free((body*)func->context);
     }
     parse_free(program->child);
     free(program);
@@ -544,7 +717,14 @@ void print_program(body* program, int depth) {
     while_body* _while;
     for_body* _for;
     variable* var;
+    function_call* call;
+    struct program* prog;
     switch(program->type) {
+        case PROGRAM:
+            prog = (struct program*)program;
+            for (int i = 0; i < prog->func_length; i++)
+                print_program((body*)prog->funcs[i], 0);
+            return;
         case FUNCTION:
             printf("%s (%s):\n", BODY_TYPES_NAMES[program->type], ((function*)program)->name);
             break;
@@ -592,6 +772,13 @@ void print_program(body* program, int depth) {
             print_program(_for->condition, depth + 2);
             print_program(_for->init, depth + 2);
             print_program(_for->expr, depth + 2);
+            break;
+        case CALL:
+            call = (function_call*)program;
+            printf("%s (%s):\n", BODY_TYPES_NAMES[program->type], call->name);
+            for (int i = 0; i < call->argc; i++) {
+                print_program(call->expressions[i], depth + 1);    
+            }
             break;
         default:
             if (program->type != LIST)

@@ -25,6 +25,8 @@ void gen_if(FILE* fp, body* body);
 void gen_while(FILE* fp, body* body);
 void gen_for(FILE* fp, body* body);
 void gen_statement(FILE* fp, body* body);
+void gen_call(FILE* fp, body* body);
+void gen_context(FILE* fp, body* body);
 
 void get_clause_names(char* child, char* end);
 void get_label_names(char* child, char* end, int label);
@@ -46,7 +48,9 @@ const static generator gens[] = {
     gen_while,
     gen_for,
     gen_statement,
-    gen_statement
+    gen_statement,
+    gen_call,
+    gen_context
 };
 
 #endif

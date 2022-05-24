@@ -55,29 +55,32 @@ void gen_return(FILE* fp, body* body) {
 }
 
 void gen_function(FILE* fp, body* body) {
+    if (body->child == NULL) return;
+
     function* func = (function*)body;
-    const char* template = "%s:\n\tpush\t%%rbp\n\tmov\t\t%%rsp, %%rbp\n";
+
+    const char* template = "%s:\n\tpushq\t%%rbp\n\tmovq\t%%rsp, %%rbp\n";
     fprintf(fp, template, func->name);
 
+    //TODO: convert passed argument to local variables
+    //NOTE: we only handle 6 arguments, because that makes it way easier
+    const char* regs[] = {"edi", "esi", "edx", "ecx", "r8d", "r9d"};
+    context* c = (context*)func->child;
+    for (int i = 0; i < c->stack_offset/OFFSET_SIZE; i++)
+        fprintf(fp, "\tmovl\t%%%s, %%eax\n\tpush\t%%rax\n", regs[i]);
+
     gen_code(fp, func->child);
-    
-    list* current = (list*)func->child;
-
-    while(current && current->next && current->next->child) {
-        current = current->next;
-    }
-
-    if (current == NULL || (current->child == NULL || current->child->type != RETURN)) {
-        const char* template_return = "\tmov\t\t%rbp, %rsp\n\tpop\t\t%rbp\n\tmov\t\t$0, %rax\n\tret\n";
-        fprintf(fp, "%s", template_return);
-    }
 }
 
 void gen_program(FILE* fp, body* body) {
     const char* template = "\t.globl\tmain\n";
     fprintf(fp, "%s", template);
-
+    program* prog = (program*)body;
     gen_code(fp, body->child);
+
+    for (int i = 0; i < prog->func_length; i++) {
+        gen_code(fp, (struct body*)prog->funcs[i]);
+    }
 }
 
 void gen_expression(FILE* fp, body* body) {
@@ -171,10 +174,18 @@ void gen_list(FILE* fp, body* b) {
     list* l = (list*)b;
     gen_code(fp, l->child);
     gen_list(fp, (body*)l->next);
+}
+
+void gen_context(FILE* fp, body* b) {
+    if (b == NULL || b->child == NULL) return;
+    context* c = (context*)b;
+    gen_code(fp, c->child);
 
     const char* template = "\tadd\t\t$%i, %%rsp\n";
-    if (l->stack_offset_dif != 0)
-        fprintf(fp, template, l->stack_offset_dif);
+    
+    if (c->stack_offset_dif != 0) {
+        fprintf(fp, template, c->stack_offset_dif);
+    }
 }
 
 void gen_assign(FILE* fp, body* body) {
@@ -263,6 +274,8 @@ void gen_for(FILE* fp, body* body) {
     fprintf(fp, "\tjmp\t\t%s\n", child);
     fprintf(fp, "%s:\n", end);
 
+    // remove the init variable
+    fprintf(fp, "\tadd\t\t$%i, %%rsp\n", 8);
 }
 
 void gen_statement(FILE* fp, body* body) {
@@ -281,4 +294,22 @@ void gen_statement(FILE* fp, body* body) {
     if (state->type == BREAK) {
         fprintf(fp, template, end);
     }
+}
+
+void gen_call(FILE* fp, body* body) {
+
+    // NOTE: we will only support 6 arguments for our functions due to simplicity :)
+    // TODO: implement full x86-64 System V user-space function calling conventions
+
+    const char* regs[] = {"edi", "esi", "edx", "ecx", "r8d", "r9d"};
+
+    function_call* call = (function_call*)body;
+
+    for (int i = 0; i < call->argc; i++) {
+        const char* expr_template = "\tmov\t\t%%eax, %%%s\n";
+        gen_code(fp, call->expressions[i]);
+        fprintf(fp, expr_template, regs[i]);    
+    }
+
+    fprintf(fp, "\tcall\t%s\n", call->name);
 }

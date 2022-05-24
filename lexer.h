@@ -40,6 +40,7 @@ typedef enum TOKENS {
     FOR_KEYWORD,
     CONTINUE_KEYWORD,
     BREAK_KEYWORD,
+    COMMA,
     IDENTIFIER,
     EOF_TOKEN,
     TOKEN_LAST=EOF_TOKEN
@@ -77,6 +78,7 @@ static const char* TOKEN_NAMES[] = {
     "FOR_KEYWORD",
     "CONTINUE_KEYWORD",
     "BREAK_KEYWORD",
+    "COMMA",
     "IDENTIFIER",
     "END OF FILE"
 };
@@ -115,6 +117,7 @@ static const char* TOKEN_SYMBOLS[] = {
     "for",
     "continue",
     "break",
+    ",",
     NULL,
     NULL
 };

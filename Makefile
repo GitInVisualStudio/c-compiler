@@ -1,5 +1,5 @@
 compile: lexer.o parser.o gen.o
-	gcc -o ../build/main main.c lexer.o parser.o gen.o
+	gcc -O2 -o ../build/main main.c lexer.o parser.o gen.o
 	rm *.o
 
 run: compile
@@ -10,4 +10,8 @@ valgrind: compile
 
 test: run
 	gcc ../build/output.s -o ../build/out
+	../build/out
+
+verify: 
+	gcc -o ../build/out ../code/return_2.c
 	../build/out
