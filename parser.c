@@ -246,6 +246,12 @@ void parse_call(lexer* lexer, body** body, context* context, token* prev) {
         }
     }
 
+    if (call->argc != argc) {
+        char error_msg[INPUT_SIZE * 2];
+        sprintf(error_msg, "Wrong amount of arguments! Expected: %i Got: %i", argc, call->argc);
+        fail_error(error_msg);
+    }
+
     check_valid(lexer, &current, C_PARENTHESIS);
 
     *body = (struct body*)call;
