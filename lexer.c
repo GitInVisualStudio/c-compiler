@@ -108,5 +108,5 @@ bool __int_literal(char input[INPUT_SIZE], int index) {
 }
 
 bool __identifier(char input[INPUT_SIZE], int index) {
-    return (input[index] >= 'a' && input[index] <= 'z') || (input[index] >= '0' && input[index] <= '9');
+    return (input[index] >= 'a' && input[index] <= 'z') || (input[index] >= '0' && input[index] <= '9') || input[index] == '_';
 }

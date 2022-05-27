@@ -85,15 +85,17 @@ int get_argc(context* context, char* name) {
 
 void parse_factor(lexer* lexer, body** factor, context* context) {
     token current;
-    lexer_next(lexer, &current);
+    lexer_peak(lexer, &current);
 
     if (current.token_type == O_PARENTHESIS) {
+        lexer_next(lexer, &current);
         parse_expression(lexer, factor, context);
         check_valid(lexer, &current, C_PARENTHESIS);
         return;
     }
 
     if (current.token_type == BITWISE_COMPLEMENT || current.token_type == MINUS || current.token_type == LOGICAL_NEGATION) {
+        lexer_next(lexer, &current);
         unaryOps* new = (unaryOps*)malloc(sizeof(struct unaryOps));
         new->type = UNARY_OPS;
         new->op = current.token_type;
@@ -103,6 +105,7 @@ void parse_factor(lexer* lexer, body** factor, context* context) {
     }
 
     if (current.token_type == INT_LITERAL) {
+        lexer_next(lexer, &current);
         constant* cons = (constant*)malloc(sizeof(struct constant));
         cons->type = CONSTANT;
         cons->value = atoi(current.value);
@@ -112,7 +115,7 @@ void parse_factor(lexer* lexer, body** factor, context* context) {
     }
 
     if (current.token_type == IDENTIFIER) {
-        
+        lexer_next(lexer, &current);
         token next;
         lexer_peak(lexer, &next);
         if (next.token_type == O_PARENTHESIS) {
@@ -135,7 +138,7 @@ void parse_factor(lexer* lexer, body** factor, context* context) {
         return;
     }
 
-    fail(&current, INT_LITERAL);
+    *factor = NULL;
 }
 
 bool contains_token(TOKENS* tokens, int tokens_length, TOKENS token) {
@@ -460,8 +463,16 @@ void parse_for(lexer* lexer, body** body, context* context) {
     parse_expression(lexer, &_for->condition, new_context);
     check_valid(lexer, &current, SEMICOLON);
 
+    // empty condition expression -> 1
+    if (_for->condition == NULL) {
+        struct constant* cons = (struct constant*)malloc(sizeof(struct constant));
+        cons->value = 1;
+        cons->child = NULL;
+        cons->type = CONSTANT;
+        _for->condition = (struct body*)cons;
+    }
+    
     parse_expression(lexer, &_for->expr, new_context);
-
     check_valid(lexer, &current, C_PARENTHESIS);
 
     parse_list(lexer, &new_context->child, new_context);
@@ -523,7 +534,7 @@ void parse_statement(lexer* lexer, body** state, context* context) {
             break;
         case SEMICOLON:
             lexer_next(lexer, &current);
-            break;
+            return;
         case IF_KEYWORD:
             parse_if(lexer, state, context);
             return;
@@ -539,12 +550,6 @@ void parse_statement(lexer* lexer, body** state, context* context) {
         default:
             parse_expression(lexer, state, context);
             check_valid(lexer, &current, SEMICOLON);
-    }
-
-    lexer_peak(lexer, &current);
-    if (current.token_type == SEMICOLON) {
-        lexer_next(lexer, &current);
-        return;
     }
 }
 
@@ -621,6 +626,8 @@ void parse_function(lexer* lexer, function** func, context* context) {
         lexer_next(lexer, &current);
         return;
     }
+
+    append_function(new_context, new->name, new->argc);
 
     parse_list(lexer, &new_context->child, new_context);
 }
