@@ -15,3 +15,6 @@ test: run
 verify: 
 	gcc -o ../build/out ../code/return_2.c
 	../build/out
+
+tests: compile
+	python3 ../test/test.py ../build/main

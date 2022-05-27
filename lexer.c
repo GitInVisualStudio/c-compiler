@@ -37,6 +37,7 @@ bool lexer_next(lexer* lexer, token* token) {
         const char* symbol = TOKEN_SYMBOLS[i];
         if (symbol == NULL) continue;
         int length = strlen(symbol);
+        
         if (strncmp(input, symbol, length) == 0) {
             // token is only sub string
             if (length != input_length) {

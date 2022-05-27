@@ -99,8 +99,12 @@ void parse_factor(lexer* lexer, body** factor, context* context) {
         unaryOps* new = (unaryOps*)malloc(sizeof(struct unaryOps));
         new->type = UNARY_OPS;
         new->op = current.token_type;
+        new->child = NULL;
         *factor = (body*)new;
         parse_factor(lexer, &new->child, context);
+
+        if (new->child == NULL) 
+            fail_error("missing factor");
         return;
     }
 
@@ -163,7 +167,12 @@ void parse_expressions(lexer* lexer, body** body, context* context, parser p, TO
         new->type = EXPRESSION;
         new->op = current.token_type;
         new->child = *body;
+        new->child2 = NULL;
         p(lexer, &new->child2, context);
+
+        if (new->child2 == NULL || new->child == NULL)
+            fail_error("missing first expressoin!");
+
         *body = (struct body*)new;
         
         lexer_peak(lexer, &current);
@@ -331,6 +340,10 @@ void parse_return(lexer* lexer, body** b, context* context) {
     check_valid(lexer, &current, RETURN_KEYWORD);
 
     parse_expression(lexer, &new->child, context);
+
+    if (new->child == NULL) 
+        fail_error("missing expression");
+    
 
     check_valid(lexer, &current, SEMICOLON);
 }
@@ -648,6 +661,12 @@ void parse_list(lexer* lexer, body** body, context* _context) {
     // parse only one statement and return
     if (current.token_type != O_BRACE) {
         parse_statement(lexer, &l->child, new_context);
+
+        if (l->child != NULL && l->child->type == DECLARE)
+        {
+            fail_error("A depended statement may not be a declaration!");
+        }
+
         new_context->stack_offset_dif = new_context->stack_offset - _context->stack_offset;
         return;
     }
@@ -695,7 +714,7 @@ void parse_program(lexer* lexer, body** prog) {
         parse_function(lexer, &new->funcs[new->func_length - 1], context);
 
         lexer_peak(lexer, &current);
-    } while (current.token_type == INT_KEYWORD);
+    } while (current.token_type != EOF_TOKEN);
 
     parse_free((struct body*)context);
 }
