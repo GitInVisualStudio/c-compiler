@@ -19,6 +19,10 @@ typedef enum TOKENS {
     INT_KEYWORD,
     RETURN_KEYWORD,
     INT_LITERAL,
+    ADD_ASSIGN,
+    SUB_ASSIGN,
+    MUL_ASSIGN,
+    DIV_ASSIGN,
     MINUS,
     BITWISE_COMPLEMENT,
     N_EQUAL,
@@ -41,6 +45,7 @@ typedef enum TOKENS {
     CONTINUE_KEYWORD,
     BREAK_KEYWORD,
     COMMA,
+    MODULO,
     IDENTIFIER,
     EOF_TOKEN,
     TOKEN_LAST=EOF_TOKEN
@@ -57,6 +62,10 @@ static const char* TOKEN_NAMES[] = {
     "INT_KEYWORD",
     "RETURN_KEYWORD",
     "INT_LITERAL",
+    "ADD_ASSIGN",
+    "SUB_ASSIGN",
+    "MUL_ASSIGN",
+    "DIV_ASSIGN",
     "MINUS",
     "BITWISE_COMPLEMENT",
     "N_EQUAL",
@@ -79,6 +88,7 @@ static const char* TOKEN_NAMES[] = {
     "CONTINUE_KEYWORD",
     "BREAK_KEYWORD",
     "COMMA",
+    "MODULO",
     "IDENTIFIER",
     "END OF FILE"
 };
@@ -96,6 +106,10 @@ static const char* TOKEN_SYMBOLS[] = {
     "int",
     "return",
     NULL,
+    "+=",
+    "-=",
+    "*=",
+    "/=",
     "-",
     "~",
     "!=",
@@ -118,6 +132,7 @@ static const char* TOKEN_SYMBOLS[] = {
     "continue",
     "break",
     ",",
+    "%",
     NULL,
     NULL
 };

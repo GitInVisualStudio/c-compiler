@@ -168,7 +168,7 @@ void parse_expressions(lexer* lexer, body** body, context* context, parser p, TO
 }
 
 void parse_term(lexer* lexer, body** term, context* context) {
-    parse_expressions(lexer, term, context, parse_factor, (TOKENS[]){MULTIPLICATION, DIVISION}, 2);
+    parse_expressions(lexer, term, context, parse_factor, (TOKENS[]){MULTIPLICATION, DIVISION, MODULO}, 3);
 }
 
 void parse_additive_exp(lexer* lexer, body** expr, context* context) {
@@ -209,8 +209,41 @@ void parse_assignment(lexer* lexer, body** body, context* context) {
     strcpy(new->name, current.value);
     *body = (struct body*)new;
 
-    check_valid(lexer, &current, ASSIGN_KEYWORD);
-    parse_expression(lexer, &new->child, context);
+    lexer_next(lexer, &current);
+
+    switch(current.token_type) {
+        case ASSIGN_KEYWORD:
+            parse_expression(lexer, &new->child, context);
+            break;
+        case ADD_ASSIGN:
+            parse_op_assign(lexer, new, context, ADDITION);
+            break;
+        case SUB_ASSIGN:
+            parse_op_assign(lexer, new, context, MINUS);
+            break;
+        case MUL_ASSIGN:
+            parse_op_assign(lexer, new, context, MULTIPLICATION);
+            break;
+        case DIV_ASSIGN:
+            parse_op_assign(lexer, new, context, DIVISION);
+            break;
+    }
+}
+
+void parse_op_assign(lexer* lexer, variable* body, context* context, TOKENS op) {
+    variable* add = (variable*)malloc(sizeof(struct variable));
+    add->type = VARIABLE;
+    add->child = NULL;
+    add->offset = get_offset(context, body->name);
+    strcpy(add->name, body->name);
+
+    expression* expr = (expression*)malloc(sizeof(struct expression));
+    expr->type = EXPRESSION;
+    expr->op = op;
+    expr->child2 = (struct body*)add;
+    body->child = (struct body*)expr;
+
+    parse_expression(lexer, &expr->child, context);
 }
 
 void parse_call(lexer* lexer, body** body, context* context, token* prev) {
@@ -271,7 +304,8 @@ void parse_expression(lexer* lexer, body** expr, context* context) {
 
         lexer_next(lexer, &current);
         fseek(lexer->fp, offset, SEEK_SET);
-        if (current.token_type == ASSIGN_KEYWORD) {   
+
+        if (contains_token((TOKENS[]){ASSIGN, ADD_ASSIGN, SUB_ASSIGN, MUL_ASSIGN, DIV_ASSIGN}, 5, current.token_type)) {   
             parse_assignment(lexer, expr, context);         
             return;
         }

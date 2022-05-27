@@ -136,6 +136,9 @@ void gen_expression(FILE* fp, body* body) {
         case DIVISION:
             fprintf(fp, "%s", "\tmovl\t%eax, %ebx\n\tmovl\t%ecx, %eax\n\tcdq\n\tidivl\t%ebx\n");
             break;
+        case MODULO:
+            fprintf(fp, "%s", "\tmovl\t%eax, %ebx\n\tmovl\t%ecx, %eax\n\tcdq\n\tidivl\t%ebx\n\tmovl\t%edx, %eax\n");
+            break;
         case EQUAL:
             fprintf(fp, c_template, "sete");
             break;

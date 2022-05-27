@@ -175,6 +175,7 @@ void parse_break(lexer* lexer, body** body, context* context);
 void parse_assignment(lexer* lexer, body** body, context* context);
 void parse_call(lexer* lexer, body** body, context* context, token* prev);
 void parse_parameter(lexer* lexer, context* context);
+void parse_op_assign(lexer* lexer, variable* body, context* context, TOKENS op);
 
 void cpy_str_arry(char** dest, char** src, int length);
 
