@@ -305,7 +305,7 @@ void parse_expression(lexer* lexer, body** expr, context* context) {
         lexer_next(lexer, &current);
         fseek(lexer->fp, offset, SEEK_SET);
 
-        if (contains_token((TOKENS[]){ASSIGN, ADD_ASSIGN, SUB_ASSIGN, MUL_ASSIGN, DIV_ASSIGN}, 5, current.token_type)) {   
+        if (contains_token((TOKENS[]){ASSIGN_KEYWORD, ADD_ASSIGN, SUB_ASSIGN, MUL_ASSIGN, DIV_ASSIGN}, 5, current.token_type)) {   
             parse_assignment(lexer, expr, context);         
             return;
         }
@@ -628,7 +628,6 @@ void parse_function(lexer* lexer, function** func, context* context) {
 void parse_list(lexer* lexer, body** body, context* _context) {
     token current;
 
-    check_valid(lexer, &current, O_BRACE);
     context* new_context = copy_context(_context);
     list* l = (list*)calloc(1, sizeof(struct list));
     list *next = NULL;
@@ -637,6 +636,16 @@ void parse_list(lexer* lexer, body** body, context* _context) {
     new_context->child = (struct body*)l;
     *body = (struct body*)new_context;
 
+    lexer_peak(lexer, &current);
+
+    // parse only one statement and return
+    if (current.token_type != O_BRACE) {
+        parse_statement(lexer, &l->child, new_context);
+        new_context->stack_offset_dif = new_context->stack_offset - _context->stack_offset;
+        return;
+    }
+
+    check_valid(lexer, &current, O_BRACE);
     lexer_peak(lexer, &current);
 
     while (current.token_type != C_BRACE) {
