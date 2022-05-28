@@ -773,7 +773,6 @@ void parse_free(body* program) {
         }
         if (prog->func_length > 0)
             free(prog->funcs);
-        // parse_free((body*)func->context);
     }
     parse_free(program->child);
     free(program);

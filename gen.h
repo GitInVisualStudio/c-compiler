@@ -3,13 +3,33 @@
 #ifndef GEN_H
 #define GEN_H
 
+/**
+ * @brief used to generate unique labels
+ * 
+ */
 static int clause_count = 0;
 
-void free_var_list();
-
+/**
+ * @brief compiles input_file into x86 asm and stores the code in output_file
+ * 
+ * @param input_file 
+ * @param output_file 
+ */
 void compile(char* input_file, char* output_file);
 
+/**
+ * @brief generates the code for a body of the AST
+ * 
+ * executes the right generator of the body based on its type
+ * 
+ * @param fp 
+ * @param body 
+ */
 void gen_code(FILE* fp, body* body);
+
+/**
+ * each body type has its own generator function
+ */
 
 void gen_constant(FILE* fp, body* body);
 void gen_return(FILE* fp, body* body);
@@ -28,11 +48,33 @@ void gen_statement(FILE* fp, body* body);
 void gen_call(FILE* fp, body* body);
 void gen_context(FILE* fp, body* body);
 
+/**
+ * @brief writes clause names for example for if statemetns, all arguments must be allocated
+ * 
+ * @param child 
+ * @param end 
+ */
 void get_clause_names(char* child, char* end);
+
+/**
+ * @brief writes label names of a loop, all arguments must be allocated
+ * 
+ * @param child 
+ * @param end 
+ * @param label 
+ */
 void get_label_names(char* child, char* end, int label);
 
+/**
+ * @brief generic generator function
+ * 
+ */
 typedef void(*generator)(FILE*, body*);
 
+/**
+ * @brief each generator corresponds to one body type, sorted based on the body types index
+ * 
+ */
 const static generator gens[] = {
     gen_constant, 
     gen_return, 
@@ -47,7 +89,7 @@ const static generator gens[] = {
     gen_if,
     gen_while,
     gen_for,
-    gen_statement,
+    gen_statement, //used for continue and break
     gen_statement,
     gen_call,
     gen_context

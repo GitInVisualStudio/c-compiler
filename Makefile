@@ -3,10 +3,10 @@ compile: lexer.o parser.o gen.o
 	rm *.o
 
 run: compile
-	../build/main ../code/return_2.c ../build/output.s
+	../build/main ../code/return_2.c ../build/output.asm
 	
 valgrind: compile
-	valgrind --track-origins=yes --leak-check=full ../build/main ../code/return_2.c ../build/output.s
+	valgrind --track-origins=yes --leak-check=full ../build/main ../code/return_2.c ../build/output.asm
 
 test: run
 	gcc ../build/output.s -o ../build/out

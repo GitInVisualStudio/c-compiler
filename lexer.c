@@ -38,8 +38,17 @@ bool lexer_next(lexer* lexer, token* token) {
         if (symbol == NULL) continue;
         int length = strlen(symbol);
         
+        /**
+         * we need to compare N letters of the input, 
+         * because tokens can be folled diretly on another without and leading whitespace 
+         */
         if (strncmp(input, symbol, length) == 0) {
-            // token is only sub string
+
+            /**
+             * when the token is only substring of the input read,
+             * we need to reset the seek position of the FP to the end of that token
+             * otherwise we'd skip the next token
+             */
             if (length != input_length) {
                 fflush(lexer->fp);
                 int offset = ftell(lexer->fp);
@@ -51,7 +60,9 @@ bool lexer_next(lexer* lexer, token* token) {
             return true;
         }
     }
-
+    /**
+     * int literals and identifiers don't have a static symbol, they need a custom implementation
+     */
     if (__identifiy_token(lexer, token, input, __int_literal)) {
         token->token_type = INT_LITERAL;
         return true;
@@ -82,7 +93,11 @@ bool __identifiy_token(lexer* lexer, token* token, char input[INPUT_SIZE], token
         if (condition(input, i)) {
             buffer[i] = input[i];
         } else {
-            if (i > 0) { //at the end of is some other token
+            /**
+             * Look at lexer_next, tokens can have no leading whitespace ->
+             * the input can consist of multiple tokens. If so we need to re-set the seek position
+             */
+            if (i > 0) {
                 fflush(lexer->fp);
                 int offset = ftell(lexer->fp);
                 fseek(lexer->fp, offset - (length - i), SEEK_SET);

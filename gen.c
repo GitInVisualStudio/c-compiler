@@ -95,6 +95,7 @@ void gen_expression(FILE* fp, body* body) {
 
     char child[24], end[24];
     
+    // gen AND & OR expressions with short circuit
     if (exp->op == OR || exp->op == AND) {
         get_clause_names(child, end);
 
