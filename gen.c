@@ -28,7 +28,7 @@ void gen_code(FILE* fp, body* body) {
 void gen_unaryops(FILE* fp, body* body) {
     gen_code(fp, body->child);
     unaryOps* unOp = (unaryOps*)body;
-    char* template = "\tcmpl\t$0, %%eax\n\tmovl\t$0, %%eax\n\tsete\t%%al\n";
+    char* template = "\tcmpl\t$0, %eax\n\tmovl\t$0, %eax\n\tsete\t%al\n";
     switch (unOp->op) {
         case MINUS:
             fprintf(fp, "%s", "\tneg\t\t%eax\n");
