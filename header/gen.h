@@ -7,7 +7,7 @@
  * @brief used to generate unique labels
  * 
  */
-static int clause_count = 0;
+extern int clause_count;
 
 /**
  * @brief compiles input_file into x86 asm and stores the code in output_file
@@ -75,24 +75,6 @@ typedef void(*generator)(FILE*, body*);
  * @brief each generator corresponds to one body type, sorted based on the body types index
  * 
  */
-const static generator gens[] = {
-    gen_constant, 
-    gen_return, 
-    gen_function, 
-    gen_program, 
-    gen_unaryops, 
-    gen_expression, 
-    gen_assign,
-    gen_list,
-    gen_declare,
-    gen_variable,
-    gen_if,
-    gen_while,
-    gen_for,
-    gen_statement, //used for continue and break
-    gen_statement,
-    gen_call,
-    gen_context
-};
+extern const generator gens[];
 
 #endif

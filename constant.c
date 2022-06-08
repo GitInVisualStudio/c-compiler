@@ -1,6 +1,6 @@
 #include "header/constant.h"
 
-void parser_constant(lexer* lexer, body** body, context* context) {
+void parser_constant(lexer* lexer, body** body) {
     token current;
     lexer_next(lexer, &current);
 
@@ -13,4 +13,5 @@ void parser_constant(lexer* lexer, body** body, context* context) {
 
 void __print_constant(body* body, int depth) {
     printf("%s: %i\n", BODY_TYPES_NAMES[body->type], ((constant*)body)->value);
+    PRINT_BODY(body->child, depth + 1);
 }

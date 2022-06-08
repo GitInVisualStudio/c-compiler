@@ -57,25 +57,7 @@ typedef enum BODY_TYPES {
  * @brief string representation of each body type
  * 
  */
-static const char* BODY_TYPES_NAMES[] = {
-    "CONSTANT",
-    "RETURN",
-    "FUNCTION",
-    "PROGRAM",
-    "UNARY_OPS",
-    "EXPRESSION",
-    "ASSIGN",
-    "LIST",
-    "DECLARE",
-    "VARIABLE",
-    "IF",
-    "WHILE",
-    "FOR",
-    "CONTINUE",
-    "BREAK",
-    "CALL",
-    "CONTEXT"
-};
+extern const char* BODY_TYPES_NAMES[];
 
 /**
  * @brief delegate function to free & print each body type

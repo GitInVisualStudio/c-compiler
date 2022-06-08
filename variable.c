@@ -36,6 +36,8 @@ void parse_assignment(lexer* lexer, body** body, context* context) {
         case DIV_ASSIGN:
             parse_op_assign(lexer, new, context, DIVISION);
             break;
+        default:
+            break;
     }
 }
 

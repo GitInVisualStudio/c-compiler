@@ -65,45 +65,7 @@ typedef enum TOKENS {
 /**
  * @brief string from of all different tokens 
  */
-static const char* TOKEN_NAMES[] = {
-    "O_BRACE",
-    "C_BRACE",
-    "O_PARENTHESIS",
-    "C_PARENTHESIS",
-    "SEMICOLON",
-    "INT_KEYWORD",
-    "RETURN_KEYWORD",
-    "INT_LITERAL",
-    "ADD_ASSIGN",
-    "SUB_ASSIGN",
-    "MUL_ASSIGN",
-    "DIV_ASSIGN",
-    "MINUS",
-    "BITWISE_COMPLEMENT",
-    "N_EQUAL",
-    "LOGICAL_NEGATION",
-    "ADDITION",
-    "MULTIPLICATION",
-    "DIVISION",
-    "AND",
-    "OR", 
-    "EQUAL",
-    "LESS_THAN_OR",
-    "GREATER_THAN_OR",
-    "GREATER_THAN",
-    "LESS_THAN",
-    "ASSIGN_KEYWORD",
-    "IF_KEYWORD",
-    "ELSE_KEYWORD",
-    "WHILE_KEYWORD",
-    "FOR_KEYWORD",
-    "CONTINUE_KEYWORD",
-    "BREAK_KEYWORD",
-    "COMMA",
-    "MODULO",
-    "IDENTIFIER",
-    "END OF FILE"
-};
+extern const char* TOKEN_NAMES[TOKENS_LENGTH];
 
 /**
  * @brief list of according token symbols to token types
@@ -111,45 +73,7 @@ static const char* TOKEN_NAMES[] = {
  * needs to be sorted based on the sub tokens a token can have
  * Example: '+=' would be identified as '+' & '=' if the token '+' comes first in this list
  */
-static const char* TOKEN_SYMBOLS[] = {
-    "{",
-    "}",
-    "(",
-    ")",
-    ";",
-    "int",
-    "return",
-    NULL,
-    "+=",
-    "-=",
-    "*=",
-    "/=",
-    "-",
-    "~",
-    "!=",
-    "!",
-    "+",
-    "*",
-    "/",
-    "&&",
-    "||",
-    "==",
-    "<=",
-    ">=",
-    ">",
-    "<",
-    "=",
-    "if",
-    "else",
-    "while",
-    "for",
-    "continue",
-    "break",
-    ",",
-    "%",
-    NULL,
-    NULL
-};
+extern const char* TOKEN_SYMBOLS[TOKENS_LENGTH];
 
 /**
  * @brief token struct, contains the type and the string it was identified from 

@@ -1,5 +1,26 @@
 #include "header/gen.h"
 
+int clause_count = 0;
+
+const generator gens[] = {
+    gen_constant, 
+    gen_return, 
+    gen_function, 
+    gen_program, 
+    gen_unaryops, 
+    gen_expression, 
+    gen_assign,
+    gen_list,
+    gen_declare,
+    gen_variable,
+    gen_if,
+    gen_while,
+    gen_for,
+    gen_statement, //used for continue and break
+    gen_statement,
+    gen_call,
+    gen_context
+};
 
 void compile(char* input_file, char* output_file) {
 
@@ -40,6 +61,8 @@ void gen_unaryops(FILE* fp, body* body) {
             break;
         case LOGICAL_NEGATION:
             fprintf(fp, "%s", template);
+            break;
+        default:
             break;
     }
 }
@@ -159,6 +182,8 @@ void gen_expression(FILE* fp, body* body) {
             break;
         case LESS_THAN_OR:
             fprintf(fp, c_template, "setle");
+            break;
+        default:
             break;
     }
 }
@@ -299,6 +324,8 @@ void gen_statement(FILE* fp, body* body) {
             break;
         case BREAK:
             fprintf(fp, template, end);
+            break;
+        default:
             break;
     }
 }

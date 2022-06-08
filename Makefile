@@ -23,7 +23,7 @@ compile: setup $(OBJS)
 	rm *.o
 
 %.o: %.c
-	$(CC) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 run: compile
 	../build/$(COMPILER_NAME) $(EXAMPLE_FILE) $(OUTPUT_FILE)

@@ -17,7 +17,7 @@ void parse_factor(lexer* lexer, body** factor, context* context) {
     }
 
     if (current.token_type == INT_LITERAL) {
-        parser_constant(lexer, factor, context);
+        parser_constant(lexer, factor);
         return;
     }
 

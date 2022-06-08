@@ -2,6 +2,26 @@
 
 int label_count = 0;
 
+const char* BODY_TYPES_NAMES[] = {
+    "CONSTANT",
+    "RETURN",
+    "FUNCTION",
+    "PROGRAM",
+    "UNARY_OPS",
+    "EXPRESSION",
+    "ASSIGN",
+    "LIST",
+    "DECLARE",
+    "VARIABLE",
+    "IF",
+    "WHILE",
+    "FOR",
+    "CONTINUE",
+    "BREAK",
+    "CALL",
+    "CONTEXT"
+};
+
 void fail_error(char* error) {
     fprintf(stderr, "%s\n", error);
     exit(-1);
