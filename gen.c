@@ -1,5 +1,6 @@
 #include "gen.h"
 
+
 void compile(char* input_file, char* output_file) {
 
     lexer* lexer = lexer_open(input_file);
@@ -8,7 +9,7 @@ void compile(char* input_file, char* output_file) {
 
     parse_program(lexer, &program);
 
-    print_program(program, 0);
+    PRINT_BODY(program, 0);
 
     FILE* fp = fopen(output_file, "w");
 
@@ -17,7 +18,8 @@ void compile(char* input_file, char* output_file) {
     fclose(fp);
 
     lexer_free(lexer);
-    parse_free(program);
+
+    FREE_BODY(program);
 }
 
 void gen_code(FILE* fp, body* body) {
@@ -291,12 +293,13 @@ void gen_statement(FILE* fp, body* body) {
     sprintf(expr, "_expr%i", state->label);
     get_label_names(child, end, state->label);
 
-    if (state->type == CONTINUE) {
-        fprintf(fp, template, expr);
-    }
-
-    if (state->type == BREAK) {
-        fprintf(fp, template, end);
+    switch(state->type) {
+        case CONTINUE:
+            fprintf(fp, template, expr);
+            break;
+        case BREAK:
+            fprintf(fp, template, end);
+            break;
     }
 }
 

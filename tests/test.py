@@ -32,21 +32,24 @@ def execute(args) -> subprocess.Popen:
     return p
 
 def maketests(path: str, fail: bool):
-    
-    p = execute((compiler_path, path, "../build/output.s"))
-    valid = p.returncode == 0
+    try:
+        p = execute((compiler_path, path, "../build/output.s"))
+        valid = p.returncode == 0
 
-    if not fail:
-        execute(("gcc", "-o", "../build/out", "../build/output.s"))
-        compiler_value = execute(("../build/out"))
-        execute(("gcc", "-o", "../build/out", path))
-        verify_value = execute(("../build/out"))
-        if verify_value.returncode != compiler_value.returncode:
+        if not fail:
+            execute(("gcc", "-o", "../build/out", "../build/output.s"))
+            compiler_value = execute(("../build/out"))
+            execute(("gcc", "-o", "../build/out", path))
+            verify_value = execute(("../build/out"))
+            if verify_value.returncode != compiler_value.returncode:
+                print("Error with test: " + path)
+                print("Returncode was not correct!")
+                exit()
+
+        if valid == fail:
             print("Error with test: " + path)
-            print("Returncode was not correct!")
             exit()
-
-    if valid == fail:
+    except:
         print("Error with test: " + path)
         exit()
 

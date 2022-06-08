@@ -1,6 +1,13 @@
 COMPILER_NAME = compiler
-SRC_FILE = ../code/example.c
+BUILDDIR = ./
+EXAMPLE_FILE = ../code/example.c
 OUTPUT_FILE = ../build/output.s
+
+CC 		= gcc
+CFLAGS	= -Wall -Wextra -D_FORTIFY_SOURCE=2 -O2 -pipe -Werror=format-security -Werror=implicit-function-declaration
+
+SRCS = $(wildcard *.c)
+OBJS = $(SRCS:%.c=%.o)
 
 setup:
 ifeq (,$(wildcard ../build))
@@ -8,26 +15,28 @@ ifeq (,$(wildcard ../build))
 endif
 ifeq (,$(wildcard ../code))
 	mkdir ../code
-# print simple example c code
 	@echo "int main() {\n\treturn 5 * 2;\n}" > ../code/example.c
 endif
 
-compile: setup lexer.o parser.o gen.o
-	gcc -O2 -o ../build/$(COMPILER_NAME) main.c lexer.o parser.o gen.o
+compile: setup $(OBJS)
+	$(CC) $(CFLAGS) -o ../build/$(COMPILER_NAME) $(OBJS)
 	rm *.o
 
+%.o: %.c
+	$(CC) -c $< -o $@
+
 run: compile
-	../build/$(COMPILER_NAME) $(SRC_FILE) $(OUTPUT_FILE)
+	../build/$(COMPILER_NAME) $(EXAMPLE_FILE) $(OUTPUT_FILE)
 	
 valgrind: compile
-	valgrind --track-origins=yes --leak-check=full ../build/$(COMPILER_NAME) $(SRC_FILE) $(OUTPUT_FILE)
+	valgrind --track-origins=yes --leak-check=full ../build/$(COMPILER_NAME) $(EXAMPLE_FILE) $(OUTPUT_FILE)
 
 example: run
 	gcc -o ../build/out $(OUTPUT_FILE)
 	../build/out
 
 verify: # verify example output with gcc compiled version
-	gcc -o ../build/out $(SRC_FILE)
+	gcc -o ../build/out $(EXAMPLE_FILE)
 	../build/out
 
 test: compile

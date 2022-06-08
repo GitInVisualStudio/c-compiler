@@ -1,7 +1,7 @@
-#include "parser.h"
-
 #ifndef GEN_H
 #define GEN_H
+
+#include "parser.h"
 
 /**
  * @brief used to generate unique labels
