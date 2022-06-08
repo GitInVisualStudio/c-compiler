@@ -1,4 +1,4 @@
-#include "function.h"
+#include "header/function.h"
 
 void parse_parameter(lexer* lexer, context* context) {
     token current;

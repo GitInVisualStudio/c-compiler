@@ -1,4 +1,4 @@
-#include "lexer.h"
+#include "header/lexer.h"
 
 lexer* lexer_open(char* filename) {
     lexer* new_lexer = (lexer*)malloc(sizeof(struct lexer));

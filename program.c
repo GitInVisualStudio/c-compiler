@@ -1,4 +1,4 @@
-#include "program.h"
+#include "header/program.h"
 
 void parse_program(lexer* lexer, body** prog) {
     program* new;

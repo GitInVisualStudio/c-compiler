@@ -1,4 +1,4 @@
-#include "gen.h"
+#include "header/gen.h"
 
 
 void compile(char* input_file, char* output_file) {

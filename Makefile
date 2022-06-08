@@ -3,7 +3,7 @@ BUILDDIR = ./
 EXAMPLE_FILE = ../code/example.c
 OUTPUT_FILE = ../build/output.s
 
-CC 		= gcc
+CC	= gcc
 CFLAGS	= -Wall -Wextra -D_FORTIFY_SOURCE=2 -O2 -pipe -Werror=format-security -Werror=implicit-function-declaration
 
 SRCS = $(wildcard *.c)

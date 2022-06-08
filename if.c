@@ -1,4 +1,4 @@
-#include "if.h"
+#include "header/if.h"
 
 void parse_if(lexer* lexer, body** body, context* context) {
     token current;
