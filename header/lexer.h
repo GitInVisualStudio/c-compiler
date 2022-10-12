@@ -1,9 +1,9 @@
+#ifndef LEXER_H
+#define LEXER_H
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#ifndef LEXER_H
-#define LEXER_H
 
 #define INPUT_SIZE 1024
 

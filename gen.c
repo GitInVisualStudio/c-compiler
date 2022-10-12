@@ -330,20 +330,45 @@ void gen_statement(FILE* fp, body* body) {
     }
 }
 
+bool __contains_call(body* body) {
+    if (body == NULL)
+        return false;
+    if (body->type == EXPRESSION) {
+        return __contains_call(body->child) || __contains_call(((expression*)body)->child2);
+    }
+    return body->type == CALL || __contains_call(body->child);
+}
+
 void gen_call(FILE* fp, body* body) {
 
     // NOTE: we will only support 6 arguments for our functions due to simplicity :)
     // TODO: implement full x86-64 System V user-space function calling conventions
 
     const char* regs[] = {"edi", "esi", "edx", "ecx", "r8d", "r9d"};
-
     function_call* call = (function_call*)body;
 
+    /** first evaluate every expression with function calls
+     *  otherwise we can possible overwrite already passed arguemnts
+     */
     for (int i = 0; i < call->argc; i++) {
         const char* expr_template = "\tmov\t\t%%eax, %%%s\n";
-        gen_code(fp, call->expressions[i]);
-        fprintf(fp, expr_template, regs[i]);    
+        if (__contains_call(call->expressions[i])) {
+            gen_code(fp, call->expressions[i]);
+            fprintf(fp, expr_template, regs[i]);    
+        }
     }
+
+    /**
+     * because all function calls are alredy evaluated we can savely pass every other expression
+     */
+    for (int i = 0; i < call->argc; i++) {
+        const char* expr_template = "\tmov\t\t%%eax, %%%s\n";
+        if (!__contains_call(call->expressions[i])) {
+            gen_code(fp, call->expressions[i]);
+            fprintf(fp, expr_template, regs[i]);    
+        }
+    }
+
 
     fprintf(fp, "\tcall\t%s\n", call->name);
 }

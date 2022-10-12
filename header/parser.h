@@ -1,5 +1,4 @@
 #include "context.h"
-#include "lexer.h"
 #include "list.h"
 #include "while.h"
 #include "for.h"
@@ -15,6 +14,8 @@
 
 #ifndef PARSER_H
 #define PARSER_H
+
+#include "lexer.h"
 
 /**
  * @brief offset size of the stack per push
